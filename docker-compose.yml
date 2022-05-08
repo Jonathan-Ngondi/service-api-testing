@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  dev:
+    image: "rust:1.60"
+    volumes:
+      - ./projects:/projects
+    environment:
+      - USER=jonathan
+    
