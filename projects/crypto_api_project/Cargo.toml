@@ -1,0 +1,19 @@
+[package]
+name = "crypto_api_project"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cucumber="0.13.0"
+wiremock="0.5.6"
+serde="1.0.137"
+serde_json="1.0.81"
+async-trait="0.1.7"
+tokio={ version = "1.18.1", features = ["full"] }
+surf="2.3.2"
+
+[[test]]
+name = "api_tests"
+harness = false
