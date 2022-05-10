@@ -1,19 +1,16 @@
-use crate::Client;
 use crate::api_library::Result;
-use serde::{
-    Deserialize,
-    de::DeserializeOwned,
-};
+use crate::Client;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 
 #[must_use = "Does nothing until you send or execute it"]
-pub struct GetAssetPairInfoRequest{
+pub struct GetAssetPairInfoRequest {
     client: Client,
     pair: Option<String>,
 }
 
 impl GetAssetPairInfoRequest {
-    pub fn asset(self, pair: impl Into<String>) -> Self{
+    pub fn asset(self, pair: impl Into<String>) -> Self {
         Self {
             pair: Some(pair.into()),
             ..self

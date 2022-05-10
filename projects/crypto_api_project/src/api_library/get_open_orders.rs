@@ -1,8 +1,7 @@
-use crate::Client;
 use crate::api_library::Result;
+use crate::Client;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
-
 
 // - https://api.kraken.com/0/private/OpenOrders
 #[must_use = "Does nothing until you send or execute it"]

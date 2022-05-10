@@ -1,17 +1,9 @@
 use crate::api_library::Result;
 use crate::error::Error;
-use hmac:: {
-    Hmac,
-    Mac,
-    NewMac,
-};
-use sha2::{
-    Digest,
-    Sha256,
-    Sha512,
-};
+use hmac::{Hmac, Mac, NewMac};
+use sha2::{Digest, Sha256, Sha512};
 
-type HmacSha512 = Hmac::<Sha512>;
+type HmacSha512 = Hmac<Sha512>;
 
 fn sha256(input: String) -> Result<Vec<u8>> {
     let mut hash = Sha256::new();
@@ -25,12 +17,7 @@ fn sha512(input: Vec<u8>, secret: &[u8]) -> Result<Vec<u8>> {
     Ok(mac.finalize().into_bytes().to_vec())
 }
 
-pub fn get_signature(
-    api_secret: &str,
-    path: &str,
-    nonce: &str,
-    post_body: &str,
-) -> Result<String> {
+pub fn get_signature(api_secret: &str, path: &str, nonce: &str, post_body: &str) -> Result<String> {
     let mut post = String::from("");
     post.push_str(nonce);
     post.push_str(post_body);
@@ -44,7 +31,7 @@ pub fn get_signature(
 
     let secret = base64::decode(api_secret).map_err(Error::internal)?;
     let sha512_sign_encryption = sha512(byte_arr, &secret).unwrap();
-    
+
     Ok(base64::encode(&sha512_sign_encryption))
 }
 
@@ -56,41 +43,14 @@ mod tests {
     fn test_sha256_encryption() {
         let sha256 = sha256("Test".to_string());
 
-        println!("{:#?}",sha256.as_ref().unwrap());
+        println!("{:#?}", sha256.as_ref().unwrap());
 
-        assert!(sha256.unwrap() == vec![
-            83,
-            46,
-            170,
-            189,
-            149,
-            116,
-            136,
-            13,
-            191,
-            118,
-            185,
-            184,
-            204,
-            0,
-            131,
-            44,
-            32,
-            166,
-            236,
-            17,
-            61,
-            104,
-            34,
-            153,
-            85,
-            13,
-            122,
-            110,
-            15,
-            52,
-            94,
-            37,
-        ]);
+        assert!(
+            sha256.unwrap()
+                == vec![
+                    83, 46, 170, 189, 149, 116, 136, 13, 191, 118, 185, 184, 204, 0, 131, 44, 32,
+                    166, 236, 17, 61, 104, 34, 153, 85, 13, 122, 110, 15, 52, 94, 37,
+                ]
+        );
     }
 }

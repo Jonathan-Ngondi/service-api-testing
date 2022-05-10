@@ -1,5 +1,5 @@
-use crate::Client;
 use crate::api_library::Result;
+use crate::Client;
 use serde::{de::DeserializeOwned, Deserialize};
 
 //  https://api.kraken.com/0/public/Time

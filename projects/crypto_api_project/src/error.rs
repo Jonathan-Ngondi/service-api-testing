@@ -1,20 +1,17 @@
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Error{
+pub enum Error {
     #[error("internal error: {0}")]
     Internal(String),
     #[error("failed request: {err}")]
-    FailedRequest {err: String, status: Option<u16>},
+    FailedRequest { err: String, status: Option<u16> },
     #[error("not authorized: missing credentials")]
     Unauthorzed,
     #[error("api error: {0}")]
-    Api (String),
+    Api(String),
 }
 
 impl Error {

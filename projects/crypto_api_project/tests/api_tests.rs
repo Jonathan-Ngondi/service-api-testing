@@ -1,20 +1,13 @@
 use async_trait::async_trait;
 use cucumber::{given, then, when, World, WorldInit};
-use serde::{
-    Deserialize, 
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
-use std::{
-    collections::HashMap,
-    convert::Infallible,
-    str::FromStr,
-};
+use std::{collections::HashMap, convert::Infallible, str::FromStr};
 
 #[derive(Debug, Deserialize)]
-struct Response <T> {
+struct Response<T> {
     pub error: Vec<String>,
-    pub result: Option <T>,
+    pub result: Option<T>,
 }
 
 #[derive(Debug)]
@@ -25,9 +18,9 @@ struct OpenOrdersPostPayload {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ServerTime{
-     unixtime: u32,
-     rfc1123: String,
+struct ServerTime {
+    unixtime: u32,
+    rfc1123: String,
 }
 #[derive(Debug, Deserialize)]
 pub struct GetOpenOrders {
@@ -110,43 +103,54 @@ struct MyClient {
     status: Option<u32>,
     response_server_time: Option<ServerTime>,
     response_asset_data: Option<GetAssetPairInfo>,
-    response_open_orders: Option<Response<GetOpenOrders>>, 
+    response_open_orders: Option<Response<GetOpenOrders>>,
 }
 
-impl MyClient{
-    fn new() -> Self{ Self {
-        _url: BASE_URL.to_string(),
-        api_key: None,
-        api_sign: None,
-        nonce: 1000,
-        otp: None,
-        status: None,
-        response_server_time: None,
-        response_asset_data: None,
-        response_open_orders: None,
+impl MyClient {
+    fn new() -> Self {
+        Self {
+            _url: BASE_URL.to_string(),
+            api_key: None,
+            api_sign: None,
+            nonce: 1000,
+            otp: None,
+            status: None,
+            response_server_time: None,
+            response_asset_data: None,
+            response_open_orders: None,
         }
     }
 
-    fn make_public_api_call_to_server_time(&mut self)-> Response<ServerTime> {
+    fn make_public_api_call_to_server_time(&mut self) -> Response<ServerTime> {
         self.status = Some(200u32);
         serde_json::from_str(DUMMY_SERVER_TIME).unwrap()
     }
-    
-    fn make_public_api_call_for_asset_data(&mut self) -> Response<GetAssetPairInfo> {
+
+    fn make_public_api_call_for_asset_data(
+        &mut self,
+        params: Option<String>,
+    ) -> Response<GetAssetPairInfo> {
         self.status = Some(200u32);
-        serde_json::from_str(DUMMY_ASSET_DATA).unwrap()
+
+        if let Some(params) = params {
+            if params.as_str() == r"XXBTZUSD,XETHXXBT" {
+                serde_json::from_str(DUMMY_ASSET_DATA_W_QUERY).unwrap()
+            } else {
+                serde_json::from_str(UNKNOWN_ASSET_PAIR_ERROR).unwrap()
+            }
+        } else {
+            serde_json::from_str(DUMMY_ASSET_DATA).unwrap()
+        }
     }
 
     fn make_private_api_call_for_open_orders(
-        &mut self, 
-        api_key: Option<String>, 
+        &mut self,
+        api_key: Option<String>,
         api_sign: Option<String>,
         nonce: u64,
-        ) 
-        -> Response<GetOpenOrders>{
-
+    ) -> Response<GetOpenOrders> {
         self.status = Some(200u32);
-        
+
         if let Some(otp) = self.otp {
             if !self.verify_otp(otp) {
                 return serde_json::from_str(INVALID_NONCE_ERROR).unwrap();
@@ -156,15 +160,19 @@ impl MyClient{
         if !self.verify_nonce(nonce) {
             return serde_json::from_str(INVALID_NONCE_ERROR).unwrap();
         }
-        
+
         if let Some(api_key) = api_key {
             if let Some(api_sign) = api_sign {
-                match (api_key.as_str(), api_sign.as_str()){
-                    ("DummyKey54321", "DummySign54321") => serde_json::from_str(DUMMY_DATA_OPEN_ORDERS).unwrap(),
-                    (a,b) if (a == "DummyKey54321"&& b != "DummySign54321") => 
-                                                            serde_json::from_str(INVALID_SIGN_ERROR).unwrap(),
-                    (a,b) if (a != "DummyKey54321" && b == "DummySign54321") => 
-                                                            serde_json::from_str(INVALID_KEY_ERROR).unwrap(),
+                match (api_key.as_str(), api_sign.as_str()) {
+                    ("DummyKey54321", "DummySign54321") => {
+                        serde_json::from_str(DUMMY_DATA_OPEN_ORDERS).unwrap()
+                    }
+                    (a, b) if (a == "DummyKey54321" && b != "DummySign54321") => {
+                        serde_json::from_str(INVALID_SIGN_ERROR).unwrap()
+                    }
+                    (a, b) if (a != "DummyKey54321" && b == "DummySign54321") => {
+                        serde_json::from_str(INVALID_KEY_ERROR).unwrap()
+                    }
                     (_, _) => serde_json::from_str(INVALID_KEY_ERROR).unwrap(),
                 }
             } else {
@@ -175,9 +183,8 @@ impl MyClient{
         }
     }
 
-    fn verify_nonce(&mut self, nonce: u64) -> bool{
+    fn verify_nonce(&mut self, nonce: u64) -> bool {
         nonce > self.nonce
-
     }
 
     fn verify_otp(&mut self, otp: u32) -> bool {
@@ -185,9 +192,8 @@ impl MyClient{
     }
 }
 
-
 #[derive(Debug, WorldInit)]
-struct MyWorld{
+struct MyWorld {
     client: MyClient,
 }
 
@@ -196,16 +202,31 @@ impl World for MyWorld {
     type Error = Infallible;
 
     async fn new() -> Result<Self, Infallible> {
-        Ok (Self {
+        Ok(Self {
             client: MyClient::new(),
-        }
-    )
+        })
     }
+}
+
+#[given("a http GET request to the public web service")]
+async fn make_public_call(world: &mut MyWorld) {}
+
+#[when("the user wants to get XXBTZUSD,XETHXXBT asset pair data from the service")]
+async fn get_valid_asset_pair(world: &mut MyWorld) {
+    world.client.response_asset_data = world
+        .client
+        .make_public_api_call_for_asset_data(Some("XXBTZUSD,XETHXXBT".to_string()))
+        .result;
+}
+
+#[then("the user retrieves the query asset data successfully")]
+async fn get_valid_asset_pair_query(world: &mut MyWorld) {
+    assert_eq!(world.client.response_asset_data.as_ref().unwrap().len(), 2)
 }
 
 #[when("user wants to get server time from the service")]
 async fn get_server_time_response(world: &mut MyWorld) {
-    world.client.response_server_time =  world.client.make_public_api_call_to_server_time().result;
+    world.client.response_server_time = world.client.make_public_api_call_to_server_time().result;
 }
 
 #[then("the server time request status is OK")]
@@ -215,12 +236,18 @@ async fn time_data_retrieval_was_ok(world: &mut MyWorld) {
 
 #[then("the user retrieves the server time successfully")]
 async fn server_time_status_ok(world: &mut MyWorld) {
-    assert_eq!(world.client.response_server_time.as_ref().unwrap().unixtime, 1616334)
+    assert_eq!(
+        world.client.response_server_time.as_ref().unwrap().unixtime,
+        1616334
+    )
 }
 
 #[when("user wants to get XBT/USD asset data from the service")]
 async fn get_xbt_usd_asset_data(world: &mut MyWorld) {
-    world.client.response_asset_data = world.client.make_public_api_call_for_asset_data().result;
+    world.client.response_asset_data = world
+        .client
+        .make_public_api_call_for_asset_data(None)
+        .result;
 }
 
 #[then("the asset data request status is OK")]
@@ -231,121 +258,213 @@ async fn asset_data_status_ok(world: &mut MyWorld) {
 #[then("the user retrieves the asset data successfully")]
 async fn retrieve_asset_data(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_asset_data.as_ref().unwrap().get("XXBTZUSD").unwrap().altname, "XBTUSD")
+        world
+            .client
+            .response_asset_data
+            .as_ref()
+            .unwrap()
+            .get("XXBTZUSD")
+            .unwrap()
+            .altname,
+        "XBTUSD"
+    )
 }
 
 #[given(regex = r"^an (authorized|unauthorized) http POST request to the private service$")]
-fn authorized_private_api(world: &mut MyWorld, state: State){
+fn authorized_private_api(world: &mut MyWorld, state: State) {
     match state {
         State::Authorized => {
-                        world.client.api_key = Some("DummyKey54321".to_string());
-                        world.client.api_sign = Some("DummySign54321".to_string());
-                       },
+            world.client.api_key = Some("DummyKey54321".to_string());
+            world.client.api_sign = Some("DummySign54321".to_string());
+        }
         State::Unauthorzed => {
-                        world.client.api_key = None;
-                        world.client.api_sign = None;
-                        }
+            world.client.api_key = None;
+            world.client.api_sign = None;
+        }
     };
 }
 
-
 #[when("user retrieves open orders from the open orders endpoint with valid key and sign")]
-async fn retrieve_open_orders(world: &mut MyWorld){
+async fn retrieve_open_orders(world: &mut MyWorld) {
     let api_key = world.client.api_key.as_ref().unwrap().clone();
     let api_sign = world.client.api_sign.as_ref().unwrap().clone();
-    world.client.response_open_orders = 
-    Some(world.client.make_private_api_call_for_open_orders(
+    world.client.response_open_orders = Some(world.client.make_private_api_call_for_open_orders(
         Some(api_key),
-        Some(api_sign), 
+        Some(api_sign),
         1003u64,
     ));
 }
 
 #[then("the open order request status is OK")]
-fn check_open_orders_status_code(world:&mut MyWorld){
+fn check_open_orders_status_code(world: &mut MyWorld) {
     assert_eq!(world.client.status.as_ref().unwrap(), &200u32)
 }
 
 #[then("the user retrieves the open orders successfully")]
-fn retrieve_open_orders_successfully(world:&mut MyWorld){
+fn retrieve_open_orders_successfully(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 5)
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .open
+            .len(),
+        5
+    )
 }
 
 #[when("user retrieves open orders from the open orders endpoint with invalid key")]
-async fn retrieve_open_orders_with_invalid_key(world: &mut MyWorld){
-    world.client.response_open_orders = 
-    Some(world.client.make_private_api_call_for_open_orders(
+async fn retrieve_open_orders_with_invalid_key(world: &mut MyWorld) {
+    world.client.response_open_orders = Some(world.client.make_private_api_call_for_open_orders(
         Some("Boy, is this fun".to_string()),
-        Some("DummySign54321".to_string()), 
+        Some("DummySign54321".to_string()),
         1004u64,
     ));
 }
 
 #[then("the user receives an invalid key error")]
-fn get_error_invalid_key(world:&mut MyWorld){
+fn get_error_invalid_key(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 0);
-    assert_eq!(world.client.response_open_orders
-        .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid key")
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .open
+            .len(),
+        0
+    );
+    assert_eq!(
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .error
+            .get(0)
+            .unwrap(),
+        "EAPI:Invalid key"
+    )
 }
 
-
 #[when("user retrieves open orders from the open orders endpoint with invalid sign")]
-async fn retrieve_open_orders_with_invalid_sign(world: &mut MyWorld){
-    world.client.response_open_orders = 
-    Some(world.client.make_private_api_call_for_open_orders(
+async fn retrieve_open_orders_with_invalid_sign(world: &mut MyWorld) {
+    world.client.response_open_orders = Some(world.client.make_private_api_call_for_open_orders(
         Some("DummyKey54321".to_string()),
         Some("Boy, is this fun".to_string()),
         1006u64,
-        ));
+    ));
 }
 
 #[then("the user receives an invalid sign error")]
-fn get_error_invalid_sign(world:&mut MyWorld){
+fn get_error_invalid_sign(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 0);
-    assert_eq!(world.client.response_open_orders
-        .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid signature")
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .open
+            .len(),
+        0
+    );
+    assert_eq!(
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .error
+            .get(0)
+            .unwrap(),
+        "EAPI:Invalid signature"
+    )
 }
 
 #[when("user retrieves open orders from the open orders endpoint with invalid nonce")]
-async fn retrieve_open_orders_with_invalid_nonce(world: &mut MyWorld){
-    world.client.response_open_orders = 
-    Some(world.client.make_private_api_call_for_open_orders(
+async fn retrieve_open_orders_with_invalid_nonce(world: &mut MyWorld) {
+    world.client.response_open_orders = Some(world.client.make_private_api_call_for_open_orders(
         Some("DummyKey54321".to_string()),
         Some("DummySign54321".to_string()),
         106u64,
-        ));
+    ));
 }
 
 #[then("the user receives an invalid nonce error")]
-fn get_error_invalid_nonce(world:&mut MyWorld){
+fn get_error_invalid_nonce(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 0);
-    assert_eq!(world.client.response_open_orders
-        .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid nonce")
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .open
+            .len(),
+        0
+    );
+    assert_eq!(
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .error
+            .get(0)
+            .unwrap(),
+        "EAPI:Invalid nonce"
+    )
 }
 
 #[when("the user tries to access a private endpoint with 2FA enabled without otp in payload")]
-async fn retrieve_open_orders_with_invalid_otp(world: &mut MyWorld){
+async fn retrieve_open_orders_with_invalid_otp(world: &mut MyWorld) {
     world.client.otp = Some(987654u32);
-    world.client.response_open_orders = 
-    Some(world.client.make_private_api_call_for_open_orders(
+    world.client.response_open_orders = Some(world.client.make_private_api_call_for_open_orders(
         Some("DummyKey54321".to_string()),
         Some("DummySign54321".to_string()),
         106u64,
-        ));
+    ));
 }
 
 #[then("user receives a permission denied error")]
-fn get_error_invalid_otp(world:&mut MyWorld){
+fn get_error_invalid_otp(world: &mut MyWorld) {
     assert_eq!(
-        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 0);
-    assert_eq!(world.client.response_open_orders
-        .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid nonce")
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .result
+            .as_ref()
+            .unwrap()
+            .open
+            .len(),
+        0
+    );
+    assert_eq!(
+        world
+            .client
+            .response_open_orders
+            .as_ref()
+            .unwrap()
+            .error
+            .get(0)
+            .unwrap(),
+        "EAPI:Invalid nonce"
+    )
 }
-
 
 mod dummy_data;
 pub use crate::dummy_data::*;
@@ -353,7 +472,7 @@ pub use crate::dummy_data::*;
 #[tokio::main]
 async fn main() {
     println!("----------------Starting Tests--------------");
-     MyWorld::run("tests/features/public_api_tests.feature").await;
-     MyWorld::run("tests/features/private_api_tests.feature").await;
-     println!("---------------------End--------------------");
+    MyWorld::run("tests/features/public_api_tests.feature").await;
+    MyWorld::run("tests/features/private_api_tests.feature").await;
+    println!("---------------------End--------------------");
 }
