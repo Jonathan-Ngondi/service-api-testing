@@ -10,10 +10,6 @@ use sha2::{
     Sha256,
     Sha512,
 };
-use std::time::{
-    SystemTime,
-    UNIX_EPOCH,
-};
 
 type HmacSha512 = Hmac::<Sha512>;
 
@@ -50,4 +46,51 @@ pub fn get_signature(
     let sha512_sign_encryption = sha512(byte_arr, &secret).unwrap();
     
     Ok(base64::encode(&sha512_sign_encryption))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sha256_encryption() {
+        let sha256 = sha256("Test".to_string());
+
+        println!("{:#?}",sha256.as_ref().unwrap());
+
+        assert!(sha256.unwrap() == vec![
+            83,
+            46,
+            170,
+            189,
+            149,
+            116,
+            136,
+            13,
+            191,
+            118,
+            185,
+            184,
+            204,
+            0,
+            131,
+            44,
+            32,
+            166,
+            236,
+            17,
+            61,
+            104,
+            34,
+            153,
+            85,
+            13,
+            122,
+            110,
+            15,
+            52,
+            94,
+            37,
+        ]);
+    }
 }

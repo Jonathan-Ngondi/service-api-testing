@@ -23,6 +23,9 @@ Feature: Test private REST API Consumption
         When user retrieves open orders from the open orders endpoint with invalid nonce
         Then the open order request status is OK
         And the user receives an invalid nonce error
-    # Scenario: 2FA on the user profile is active
-    #     When the user tries to access a private endpoint with 2FA enabled without otp in payload   
-    #     Then user recieves an unauthorized status code
+
+    Scenario: 2FA on the user api settings is active
+        Given an authorized http POST request to the private service
+        When the user tries to access a private endpoint with 2FA enabled without otp in payload
+        Then the open order request status is OK   
+        And user receives a permission denied error

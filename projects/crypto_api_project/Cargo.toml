@@ -19,8 +19,11 @@ surf="2.3.2"
 hmac = "0.10"
 base64 = "0.13.0"
 sha2 = "0.9"
+google-authenticator="0.2.0"
 
-
+[features]
+default = ["output-json"]
+output-json = []
 
 [[test]]
 name = "api_tests"

@@ -1,6 +1,8 @@
 use crate::encryption;
 use crate::error::{Error};
 use crate::api_library::Result;
+use crate::two_factor_auth::*;
+use crate::keys::GOOGLE_AUTH_SECRET;
 use serde::{
     Deserialize,
     de::DeserializeOwned,
@@ -9,7 +11,6 @@ use reqwest::{
     Client as ReqwestClient,
     header,
 };
-use std::collections::HashMap;
 use std::time::{
     SystemTime,
     UNIX_EPOCH,
@@ -94,6 +95,7 @@ async fn unwrap_response<Resp>(&self, response: reqwest::Response) -> Result<Res
 where
     Resp: DeserializeOwned,
 {   
+
     
     let response: Response<Resp> = response.json().await?;
     
@@ -126,7 +128,7 @@ where
     
 }
 
-pub async fn make_private_api_call<Resp>(&self, url: &str, query: Option<String>) -> Result<Resp>
+pub async fn make_private_api_call<Resp>(&self, url: &str, query: Option<String>, two_factor_enabled: bool) -> Result<Resp>
 where
     Resp: DeserializeOwned,
     {
@@ -138,11 +140,16 @@ where
 
                 let nonce = calculate_nonce().to_string();
 
-                let form_data = if let Some(query) = query {
+                let mut form_data = if let Some(query) = query {
                     format!("{}&nonce={}", query, nonce)
                 } else {
                     format!("nonce={}", nonce)
                 };
+
+                if two_factor_enabled {
+                    let totp = get_code(GOOGLE_AUTH_SECRET).unwrap();
+                    form_data = format!("{}&otp={}", form_data, totp);
+                }
 
                 self.http_client
                     .post(&url)
@@ -170,4 +177,20 @@ pub fn calculate_nonce() -> u64 {
     let now = SystemTime::now();
     let time_from_epoch = now.duration_since(UNIX_EPOCH).unwrap();
     time_from_epoch.as_millis() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calculate_nonce;
+
+    #[test]
+    fn test_calculate_nonce() {
+        let nonce1 = calculate_nonce();
+
+        std::thread::sleep(std::time::Duration::from_millis(2));
+
+        let nonce2 = calculate_nonce();
+
+        assert!(nonce1 < nonce2);
+    }
 }

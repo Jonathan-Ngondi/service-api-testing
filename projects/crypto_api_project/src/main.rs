@@ -1,10 +1,7 @@
 mod api_library;
-use crate::api_library::GetServerTimeRequest;
-// pub mod get_asset_pair_info;
-// pub use get_asset_pair_info::*;
 
-// pub mod get_server_time;
-// pub use get_server_time::*;
+mod two_factor_auth;
+pub use two_factor_auth::*;
 
 mod client;
 pub use client::*;
@@ -17,8 +14,6 @@ pub use error::*;
 
 pub mod keys;
 pub use keys::*;
-
-
 
 #[tokio::main]
 async fn main() {

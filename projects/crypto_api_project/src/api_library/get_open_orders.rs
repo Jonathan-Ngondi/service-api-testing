@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 // - https://api.kraken.com/0/private/OpenOrders
 #[must_use = "Does nothing until you send or execute it"]
+#[allow(dead_code)]
 pub struct GetOpenOrdersRequest {
     client: Client,
     trades: Option<bool>,
@@ -28,6 +29,13 @@ impl GetOpenOrdersRequest {
         }
     }
 
+    pub fn otp(self, otp: u32) -> Self {
+        Self {
+            otp: Some(otp),
+            ..self
+        }
+    }
+
     pub async fn execute<T: DeserializeOwned>(self) -> Result<T> {
         let mut query: Vec<String> = Vec::new();
 
@@ -46,7 +54,7 @@ impl GetOpenOrdersRequest {
         };
 
         self.client
-            .make_private_api_call("/0/private/OpenOrders", query)
+            .make_private_api_call("/0/private/OpenOrders", query, false)
             .await
     }
 

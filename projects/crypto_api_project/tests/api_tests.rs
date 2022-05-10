@@ -1,23 +1,13 @@
-use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path};
 use async_trait::async_trait;
 use cucumber::{given, then, when, World, WorldInit};
-use reqwest::{
-    Client as ReqwestClient,
-    header,
-};
 use serde::{
     Deserialize, 
     Serialize,
 };
-use serde_json::{
-    Value,
-    json,
-};
+
 use std::{
     collections::HashMap,
     convert::Infallible,
-    fmt::Display,
     str::FromStr,
 };
 
@@ -29,9 +19,9 @@ struct Response <T> {
 
 #[derive(Debug)]
 struct OpenOrdersPostPayload {
-    pub nonce: u32,
-    pub trades: bool,
-    pub userref: u32,
+    pub _nonce: u32,
+    pub _trades: bool,
+    pub _userref: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,10 +102,11 @@ impl FromStr for State {
 
 #[derive(Debug)]
 struct MyClient {
-    url: String,
+    _url: String,
     api_key: Option<String>,
     api_sign: Option<String>,
     nonce: u64,
+    otp: Option<u32>,
     status: Option<u32>,
     response_server_time: Option<ServerTime>,
     response_asset_data: Option<GetAssetPairInfo>,
@@ -124,10 +115,11 @@ struct MyClient {
 
 impl MyClient{
     fn new() -> Self{ Self {
-        url: BASE_URL.to_string(),
+        _url: BASE_URL.to_string(),
         api_key: None,
         api_sign: None,
         nonce: 1000,
+        otp: None,
         status: None,
         response_server_time: None,
         response_asset_data: None,
@@ -155,6 +147,12 @@ impl MyClient{
 
         self.status = Some(200u32);
         
+        if let Some(otp) = self.otp {
+            if !self.verify_otp(otp) {
+                return serde_json::from_str(INVALID_NONCE_ERROR).unwrap();
+            }
+        }
+
         if !self.verify_nonce(nonce) {
             return serde_json::from_str(INVALID_NONCE_ERROR).unwrap();
         }
@@ -181,6 +179,10 @@ impl MyClient{
         nonce > self.nonce
 
     }
+
+    fn verify_otp(&mut self, otp: u32) -> bool {
+        otp == 654321
+    }
 }
 
 
@@ -205,8 +207,6 @@ impl World for MyWorld {
 async fn get_server_time_response(world: &mut MyWorld) {
     world.client.response_server_time =  world.client.make_public_api_call_to_server_time().result;
 }
-
-
 
 #[then("the server time request status is OK")]
 async fn time_data_retrieval_was_ok(world: &mut MyWorld) {
@@ -237,11 +237,11 @@ async fn retrieve_asset_data(world: &mut MyWorld) {
 #[given(regex = r"^an (authorized|unauthorized) http POST request to the private service$")]
 fn authorized_private_api(world: &mut MyWorld, state: State){
     match state {
-        Authorized => {
+        State::Authorized => {
                         world.client.api_key = Some("DummyKey54321".to_string());
                         world.client.api_sign = Some("DummySign54321".to_string());
                        },
-        Unauthorzed => {
+        State::Unauthorzed => {
                         world.client.api_key = None;
                         world.client.api_sign = None;
                         }
@@ -327,6 +327,29 @@ fn get_error_invalid_nonce(world:&mut MyWorld){
         .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid nonce")
 }
 
+#[when("the user tries to access a private endpoint with 2FA enabled without otp in payload")]
+async fn retrieve_open_orders_with_invalid_otp(world: &mut MyWorld){
+    world.client.otp = Some(987654u32);
+    world.client.response_open_orders = 
+    Some(world.client.make_private_api_call_for_open_orders(
+        Some("DummyKey54321".to_string()),
+        Some("DummySign54321".to_string()),
+        106u64,
+        ));
+}
+
+#[then("user receives a permission denied error")]
+fn get_error_invalid_otp(world:&mut MyWorld){
+    assert_eq!(
+        world.client.response_open_orders.as_ref().unwrap().result.as_ref().unwrap().open.len(), 0);
+    assert_eq!(world.client.response_open_orders
+        .as_ref().unwrap().error.get(0).unwrap(), "EAPI:Invalid nonce")
+}
+
+
+mod dummy_data;
+pub use crate::dummy_data::*;
+#[cfg(feature = "output-json")]
 #[tokio::main]
 async fn main() {
     println!("----------------Starting Tests--------------");
@@ -334,405 +357,3 @@ async fn main() {
      MyWorld::run("tests/features/private_api_tests.feature").await;
      println!("---------------------End--------------------");
 }
-
-const BASE_URL: & str = "https://api.kraken.com";
-
-const DUMMY_SERVER_TIME: &str = r#"
-        {
-            "error": [],
-            "result": {
-            "unixtime": 1616334,
-            "rfc1123": "Sun, 21 Mar 21 14:23:14 +0000"
-            }
-        }"#;
-
-const DUMMY_ASSET_DATA: &str = r#"
-        {
-            "error": [],
-            "result": {
-                "XXBTZUSD": {
-                    "altname": "XBTUSD",
-                    "wsname": "XBT/USD",
-                    "aclass_base": "currency",
-                    "base": "XXBT",
-                    "aclass_quote": "currency",
-                    "quote": "ZUSD",
-                    "lot": "unit",
-                    "pair_decimals": 1,
-                    "lot_decimals": 8,
-                    "lot_multiplier": 1,
-                    "leverage_buy": [
-                        2,
-                        3,
-                        4,
-                        5
-                    ],
-                    "leverage_sell": [
-                        2,
-                        3,
-                        4,
-                        5
-                    ],
-                    "fees": [
-                        [
-                            0,
-                            0.26
-                        ],
-                        [
-                            50000,
-                            0.24
-                        ],
-                        [
-                            100000,
-                            0.22
-                        ],
-                        [
-                            250000,
-                            0.2
-                        ],
-                        [
-                            500000,
-                            0.18
-                        ],
-                        [
-                            1000000,
-                            0.16
-                        ],
-                        [
-                            2500000,
-                            0.14
-                        ],
-                        [
-                            5000000,
-                            0.12
-                        ],
-                        [
-                            10000000,
-                            0.1
-                        ]
-                    ],
-                    "fees_maker": [
-                        [
-                            0,
-                            0.16
-                        ],
-                        [
-                            50000,
-                            0.14
-                        ],
-                        [
-                            100000,
-                            0.12
-                        ],
-                        [
-                            250000,
-                            0.1
-                        ],
-                        [
-                            500000,
-                            0.08
-                        ],
-                        [
-                            1000000,
-                            0.06
-                        ],
-                        [
-                            2500000,
-                            0.04
-                        ],
-                        [
-                            5000000,
-                            0.02
-                        ],
-                        [
-                            10000000,
-                            0.0
-                        ]
-                    ],
-                    "fee_volume_currency": "ZUSD",
-                    "margin_call": 80,
-                    "margin_stop": 40,
-                    "ordermin": "0.0001"
-                }
-            }
-        }"#;
-
-const DUMMY_ASSET_DATA_W_QUERY: &str = r#"
-{
-    "error": [],
-    "result": {
-        "XETHXXBT": {
-            "fees": [
-                [
-                    0,
-                    0.26
-                ],
-                [
-                    50000,
-                    0.24
-                ],
-                [
-                    100000,
-                    0.22
-                ],
-                [
-                    250000,
-                    0.2
-                ],
-                [
-                    500000,
-                    0.18
-                ],
-                [
-                    1000000,
-                    0.16
-                ],
-                [
-                    2500000,
-                    0.14
-                ],
-                [
-                    5000000,
-                    0.12
-                ],
-                [
-                    10000000,
-                    0.1
-                ]
-            ],
-            "fees_maker": [
-                [
-                    0,
-                    0.16
-                ],
-                [
-                    50000,
-                    0.14
-                ],
-                [
-                    100000,
-                    0.12
-                ],
-                [
-                    250000,
-                    0.1
-                ],
-                [
-                    500000,
-                    0.08
-                ],
-                [
-                    1000000,
-                    0.06
-                ],
-                [
-                    2500000,
-                    0.04
-                ],
-                [
-                    5000000,
-                    0.02
-                ],
-                [
-                    10000000,
-                    0.0
-                ]
-            ],
-            "fee_volume_currency": "ZUSD"
-        },
-        "XXBTZUSD": {
-            "fees": [
-                [
-                    0,
-                    0.26
-                ],
-                [
-                    50000,
-                    0.24
-                ],
-                [
-                    100000,
-                    0.22
-                ],
-                [
-                    250000,
-                    0.2
-                ],
-                [
-                    500000,
-                    0.18
-                ],
-                [
-                    1000000,
-                    0.16
-                ],
-                [
-                    2500000,
-                    0.14
-                ],
-                [
-                    5000000,
-                    0.12
-                ],
-                [
-                    10000000,
-                    0.1
-                ]
-            ],
-            "fees_maker": [
-                [
-                    0,
-                    0.16
-                ],
-                [
-                    50000,
-                    0.14
-                ],
-                [
-                    100000,
-                    0.12
-                ],
-                [
-                    250000,
-                    0.1
-                ],
-                [
-                    500000,
-                    0.08
-                ],
-                [
-                    1000000,
-                    0.06
-                ],
-                [
-                    2500000,
-                    0.04
-                ],
-                [
-                    5000000,
-                    0.02
-                ],
-                [
-                    10000000,
-                    0.0
-                ]
-            ],
-            "fee_volume_currency": "ZUSD"
-        }
-    }
-}"#;
-
-const DUMMY_DATA_OPEN_ORDERS: &str = r#"
-        {
-            "error": [ ],
-            "result": {
-            "open": {
-            "OQCLML-BW3P3-BUCMWZ": {
-            "refid": null,
-            "userref": 0,
-            "status": "open",
-            "opentm": 1616666559.8974,
-            "starttm": 0,
-            "expiretm": 0,
-            "vol": "1.25000000",
-            "vol_exec": "0.37500000",
-            "cost": "11253.7",
-            "fee": "0.00000",
-            "price": "30010.0",
-            "stopprice": "0.00000",
-            "limitprice": "0.00000",
-            "misc": "",
-            "oflags": "fciq",
-            "trades": []
-            },
-            "OB5VMB-B4U2U-DK2WRW": {
-            "refid": null,
-            "userref": 120,
-            "status": "open",
-            "opentm": 1616665899.5699,
-            "starttm": 0,
-            "expiretm": 0,
-            "vol": "0.27500000",
-            "vol_exec": "0.00000000",
-            "cost": "0.00000",
-            "fee": "0.00000",
-            "price": "0.00000",
-            "stopprice": "0.00000",
-            "limitprice": "0.00000",
-            "misc": "",
-            "oflags": "fciq"
-            },
-            "OXHXGL-F5ICS-6DIC67": {
-            "refid": null,
-            "userref": 120,
-            "status": "open",
-            "opentm": 1616665894.0036,
-            "starttm": 0,
-            "expiretm": 0,
-            "vol": "0.27500000",
-            "vol_exec": "0.00000000",
-            "cost": "0.00000",
-            "fee": "0.00000",
-            "price": "0.00000",
-            "stopprice": "0.00000",
-            "limitprice": "0.00000",
-            "misc": "",
-            "oflags": "fciq"
-            },
-            "OLQCVY-B27XU-MBPCL5": {
-            "refid": null,
-            "userref": 251,
-            "status": "open",
-            "opentm": 1616665556.7646,
-            "starttm": 0,
-            "expiretm": 0,
-            "vol": "0.27500000",
-            "vol_exec": "0.00000000",
-            "cost": "0.00000",
-            "fee": "0.00000",
-            "price": "0.00000",
-            "stopprice": "0.00000",
-            "limitprice": "0.00000",
-            "misc": "",
-            "oflags": "fciq"
-            },
-            "OQCGAF-YRMIQ-AMJTNJ": {
-            "refid": null,
-            "userref": 0,
-            "status": "open",
-            "opentm": 1616665511.0373,
-            "starttm": 0,
-            "expiretm": 0,
-            "vol": "1.25000000",
-            "vol_exec": "0.00000000",
-            "cost": "0.00000",
-            "fee": "0.00000",
-            "price": "0.00000",
-            "stopprice": "0.00000",
-            "limitprice": "0.00000",
-            "misc": "",
-            "oflags": "fciq",
-            "trigger": "index"
-            }
-            }
-            }
-}"#;
-
-const INVALID_KEY_ERROR: &str = r#"
-    {
-        "error": ["EAPI:Invalid key"],
-        "result": { "open": {}}
-    }"#;
-
-const INVALID_NONCE_ERROR: &str = r#"
-    {
-    "error": ["EAPI:Invalid nonce"],
-    "result": { "open": {}}
-    }"#;
-
-const INVALID_SIGN_ERROR: &str = r#"
-    {
-    "error": ["EAPI:Invalid signature"],
-    "result": { "open": {}}
-    }"#;
-
