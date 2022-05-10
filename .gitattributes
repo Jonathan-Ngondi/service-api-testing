@@ -1,1 +1,1 @@
-projects\crypto_api_project\src\keys.rs
+api.key filter=git-crypt diff=git-cryptls

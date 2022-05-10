@@ -2,7 +2,6 @@ use crate::encryption;
 use crate::error::{Error};
 use crate::api_library::Result;
 use crate::two_factor_auth::*;
-use crate::keys::GOOGLE_AUTH_SECRET;
 use serde::{
     Deserialize,
     de::DeserializeOwned,
@@ -29,6 +28,7 @@ pub struct ClientBuilder {
     base_url: Option<String>,
     api_key: Option<String>,
     api_secret: Option<String>,
+    google_auth: Option<String>,
     http_client: Option<ReqwestClient>,
 }
 
@@ -48,6 +48,10 @@ impl ClientBuilder {
         self.api_secret = Some(api_secret.to_string());
         self
     }
+    pub fn google_auth(mut self, google_auth: &str) -> Self {
+        self.google_auth = Some(google_auth.to_string());
+        self
+    }
 
     pub fn http_client(mut self, http_client: ReqwestClient) -> Self {
         self.http_client = Some(http_client);
@@ -61,6 +65,7 @@ impl ClientBuilder {
             .unwrap_or_else(|| BASE_URL.to_string()),
             api_key: self.api_key,
             api_secret: self.api_secret,
+            google_auth: self.google_auth,
             http_client: self.http_client.unwrap_or_else(ReqwestClient::new),
         }
     }
@@ -71,6 +76,7 @@ pub struct Client {
     base_url: String,
     api_key: Option<String>,
     api_secret: Option<String>,
+    google_auth: Option<String>,
     http_client: ReqwestClient,
 }
 
@@ -147,7 +153,7 @@ where
                 };
 
                 if two_factor_enabled {
-                    let totp = get_code(GOOGLE_AUTH_SECRET).unwrap();
+                    let totp = get_code(self.google_auth.as_ref().unwrap()).unwrap();
                     form_data = format!("{}&otp={}", form_data, totp);
                 }
 
