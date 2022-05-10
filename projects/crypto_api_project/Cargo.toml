@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 thiserror="1.0.31"
-cucumber="0.13.0"
+cucumber={version = "0.13.0", features = ["output-json"]}
 wiremock="0.5.6"
 serde="1.0.137"
 serde_json="1.0.81"

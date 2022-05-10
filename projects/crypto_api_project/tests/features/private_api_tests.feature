@@ -16,8 +16,13 @@ Feature: Test private REST API Consumption
         Given an unauthorized http POST request to the private service
         When user retrieves open orders from the open orders endpoint with invalid sign
         Then the open order request status is OK
-        And the user recieves an invalid sign error
+        And the user receives an invalid sign error
     
+    Scenario: User is trying to retrieve open orders with invalid nonce
+        Given an unauthorized http POST request to the private service
+        When user retrieves open orders from the open orders endpoint with invalid nonce
+        Then the open order request status is OK
+        And the user receives an invalid nonce error
     # Scenario: 2FA on the user profile is active
     #     When the user tries to access a private endpoint with 2FA enabled without otp in payload   
     #     Then user recieves an unauthorized status code
