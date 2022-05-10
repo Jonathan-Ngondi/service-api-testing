@@ -6,13 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror="1.0.31"
 cucumber="0.13.0"
 wiremock="0.5.6"
 serde="1.0.137"
 serde_json="1.0.81"
 async-trait="0.1.7"
-tokio={ version = "1.18.1", features = ["full"] }
+tokio= { version = "1.18.1", features = ["full"] }
+reqwest = { version = "0.11.10", features = ["json"] }
+urlencoding = "2.1.0"
 surf="2.3.2"
+hmac = "0.10"
+base64 = "0.13.0"
+sha2 = "0.9"
+
+
 
 [[test]]
 name = "api_tests"
